@@ -18,7 +18,13 @@
           <button type="button" data-route="dashboard" data-auth-only>Dashboard</button>
           <button type="button" data-route="create" data-auth-only>Create course</button>
         </nav>
-        <div class="account-actions" id="account-actions"></div>
+        <div class="header-actions">
+          <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to dark mode" aria-pressed="false">
+            <span class="theme-toggle-knob"></span>
+            <span id="theme-toggle-label">Dark</span>
+          </button>
+          <div class="account-actions" id="account-actions"></div>
+        </div>
       </header>
 
       <main>

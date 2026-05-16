@@ -7,6 +7,8 @@ const views = {
 
 const accountActions = document.querySelector("#account-actions");
 const mainNav = document.querySelector("#main-nav");
+const themeToggle = document.querySelector("#theme-toggle");
+const themeToggleLabel = document.querySelector("#theme-toggle-label");
 const authModal = document.querySelector("#auth-modal");
 const authForm = document.querySelector("#auth-form");
 const authTitle = document.querySelector("#auth-title");
@@ -63,6 +65,7 @@ let user = null;
 let courses = [];
 let activeCourseId = null;
 let activeLessonNumber = 1;
+let theme = localStorage.getItem("coursetube-theme") || "light";
 let timer = {
   mode: "study",
   remaining: 25 * 60,
@@ -88,6 +91,14 @@ function setStatus(message, mode = "") {
 function setAuthError(message = "") {
   authError.textContent = message;
   authError.classList.toggle("hidden", !message);
+}
+
+function applyTheme() {
+  document.body.dataset.theme = theme;
+  const isDark = theme === "dark";
+  themeToggle.setAttribute("aria-pressed", String(isDark));
+  themeToggle.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+  themeToggleLabel.textContent = isDark ? "Light" : "Dark";
 }
 
 function requireAuth(route = "dashboard") {
@@ -550,6 +561,12 @@ document.body.addEventListener("click", (event) => {
   if (studyTabButton) showStudyTab(studyTabButton.dataset.studyTab);
 });
 
+themeToggle.addEventListener("click", () => {
+  theme = theme === "dark" ? "light" : "dark";
+  localStorage.setItem("coursetube-theme", theme);
+  applyTheme();
+});
+
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setAuthError("");
@@ -732,6 +749,7 @@ async function loadCourses() {
 }
 
 async function boot() {
+  applyTheme();
   await loadAuthConfig();
   await loadSession();
   await loadCourses();

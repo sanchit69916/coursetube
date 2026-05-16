@@ -42,6 +42,11 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 ADMIN_VIEWER_ENABLED = os.environ.get("ADMIN_VIEWER_ENABLED", "0").lower() in {"1", "true", "yes"}
 SQLITE_FALLBACK_PATH = Path(os.environ.get("SQLITE_FALLBACK_PATH", "/tmp/coursetube_dev.db" if os.environ.get("VERCEL") else ROOT / "coursetube_dev.db"))
 IS_PRODUCTION = bool(os.environ.get("VERCEL"))
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
@@ -190,6 +195,10 @@ def verify_password(password: str, stored: str) -> bool:
 
 def public_user(row: dict) -> dict:
     return {"id": row["id"], "name": row["name"], "email": row["email"]}
+
+
+def oauth_password_marker() -> str:
+    return "oauth_google$disabled"
 
 
 def param(sql: str) -> str:
@@ -706,6 +715,10 @@ class CourseTubeHandler(BaseHTTPRequestHandler):
         secure = "; Secure" if IS_PRODUCTION else ""
         return f"ct_session={urllib.parse.quote(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}{secure}"
 
+    def oauth_state_cookie(self, state: str, max_age: int = 600) -> str:
+        secure = "; Secure" if IS_PRODUCTION else ""
+        return f"ct_google_state={urllib.parse.quote(state)}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}{secure}"
+
     def send_error_json(self, error: Exception):
         message = "Something went wrong." if IS_PRODUCTION else str(error) or "Something went wrong."
         self.send_json(500, {"error": message})
@@ -724,6 +737,81 @@ class CourseTubeHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length).decode("utf-8") if length else "{}"
         return json.loads(raw or "{}")
+
+    def origin(self) -> str:
+        proto = self.headers.get("X-Forwarded-Proto") or ("https" if IS_PRODUCTION else "http")
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or f"localhost:{PORT}"
+        return f"{proto}://{host}"
+
+    def redirect(self, location: str, headers: dict | None = None):
+        self.send_response(302)
+        self.send_header("Location", location)
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
+        self.end_headers()
+
+    def google_redirect_uri(self) -> str:
+        return f"{self.origin()}/api/auth/google/callback"
+
+    def fetch_google_profile(self, code: str) -> dict:
+        token_payload = urllib.parse.urlencode(
+            {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": self.google_redirect_uri(),
+            }
+        ).encode("utf-8")
+        token_request = urllib.request.Request(
+            GOOGLE_TOKEN_URL,
+            data=token_payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(token_request, timeout=20) as response:
+            token_data = json.loads(response.read().decode("utf-8"))
+
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise ValueError("Google did not return an access token.")
+
+        profile_request = urllib.request.Request(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        )
+        with urllib.request.urlopen(profile_request, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def find_or_create_google_user(self, profile: dict) -> dict:
+        email = str(profile.get("email", "")).strip().lower()
+        name = str(profile.get("name", "")).strip() or email.split("@")[0]
+        if not email or not profile.get("email_verified"):
+            raise ValueError("Google account email must be verified.")
+
+        with db_connect() as db:
+            with db_cursor(db) as cursor:
+                if DATABASE_URL:
+                    cursor.execute(
+                        """
+                        INSERT INTO users (name, email, password_hash, created_at)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (email) DO UPDATE SET name = COALESCE(NULLIF(EXCLUDED.name, ''), users.name)
+                        RETURNING id, name, email
+                        """,
+                        (name, email, oauth_password_marker(), now_iso()),
+                    )
+                    return public_user(cursor.fetchone())
+                cursor.execute("SELECT id, name, email FROM users WHERE email = ?", (email,))
+                row = cursor.fetchone()
+                if row:
+                    return public_user(row)
+                cursor.execute(
+                    "INSERT INTO users (name, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                    (name, email, oauth_password_marker(), now_iso()),
+                )
+                cursor.execute("SELECT id, name, email FROM users WHERE email = ?", (email,))
+                return public_user(cursor.fetchone())
 
     def current_user(self) -> dict | None:
         token = get_cookie(self.headers, "ct_session")
@@ -900,7 +988,61 @@ class CourseTubeHandler(BaseHTTPRequestHandler):
             self.send_error_json(error)
 
     def do_GET(self):
-        if self.path == "/api/admin/db":
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        if path == "/api/auth/config":
+            self.send_json(200, {"google": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)})
+            return
+
+        if path == "/api/auth/google":
+            if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+                self.send_json(503, {"error": "Google sign-in is not configured yet."})
+                return
+            state = secrets.token_urlsafe(32)
+            query = urllib.parse.urlencode(
+                {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "redirect_uri": self.google_redirect_uri(),
+                    "response_type": "code",
+                    "scope": "openid email profile",
+                    "state": state,
+                    "prompt": "select_account",
+                }
+            )
+            self.redirect(f"{GOOGLE_AUTH_URL}?{query}", {"Set-Cookie": self.oauth_state_cookie(state)})
+            return
+
+        if path == "/api/auth/google/callback":
+            query = urllib.parse.parse_qs(parsed.query)
+            state = query.get("state", [""])[0]
+            code = query.get("code", [""])[0]
+            expected_state = get_cookie(self.headers, "ct_google_state")
+            if not state or not expected_state or not hmac.compare_digest(state, expected_state):
+                self.redirect("/index.html?auth=google_state_error", {"Set-Cookie": self.oauth_state_cookie("", 0)})
+                return
+            if not code:
+                self.redirect("/index.html?auth=google_cancelled", {"Set-Cookie": self.oauth_state_cookie("", 0)})
+                return
+            try:
+                profile = self.fetch_google_profile(code)
+                user = self.find_or_create_google_user(profile)
+                token = secrets.token_urlsafe(32)
+                with db_connect() as db:
+                    with db_cursor(db) as cursor:
+                        cursor.execute(
+                            param("INSERT INTO sessions (token, user_id, created_at) VALUES (%s, %s, %s)"),
+                            (token, user["id"], now_iso()),
+                        )
+                self.redirect(
+                    "/index.html",
+                    {"Set-Cookie": self.session_cookie(token, 2592000)},
+                )
+            except Exception:
+                self.redirect("/index.html?auth=google_error", {"Set-Cookie": self.oauth_state_cookie("", 0)})
+            return
+
+        if path == "/api/admin/db":
             if not ADMIN_VIEWER_ENABLED or self.client_address[0] not in {"127.0.0.1", "::1"}:
                 self.send_json(404, {"error": "Not found."})
                 return
@@ -910,12 +1052,12 @@ class CourseTubeHandler(BaseHTTPRequestHandler):
                 self.send_error_json(error)
             return
 
-        if self.path == "/api/auth/me":
+        if path == "/api/auth/me":
             user = self.current_user()
             self.send_json(200, {"user": user})
             return
 
-        if self.path == "/api/courses":
+        if path == "/api/courses":
             user = self.require_user()
             if not user:
                 return

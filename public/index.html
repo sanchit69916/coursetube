@@ -344,6 +344,11 @@
           <input id="auth-password" name="password" type="password" placeholder="Minimum 8 characters" required>
         </label>
         <button class="primary-button full-width" type="submit" id="auth-submit">Continue</button>
+        <div class="auth-divider"><span>or</span></div>
+        <a class="google-auth-button hidden" id="google-auth-button" href="/api/auth/google">
+          <span class="google-mark" aria-hidden="true">G</span>
+          Continue with Google
+        </a>
         <p class="auth-error hidden" id="auth-error"></p>
         <p class="auth-small" id="auth-switch"></p>
       </form>

@@ -17,6 +17,7 @@ const authPassword = document.querySelector("#auth-password");
 const authSubmit = document.querySelector("#auth-submit");
 const authSwitch = document.querySelector("#auth-switch");
 const authError = document.querySelector("#auth-error");
+const googleAuthButton = document.querySelector("#google-auth-button");
 const closeAuth = document.querySelector("#close-auth");
 const courseForm = document.querySelector("#course-form");
 const statusStrip = document.querySelector("#status-strip");
@@ -677,6 +678,16 @@ async function loadSession() {
   }
 }
 
+async function loadAuthConfig() {
+  try {
+    const response = await fetch("/api/auth/config");
+    const data = await response.json();
+    googleAuthButton.classList.toggle("hidden", !data.google);
+  } catch {
+    googleAuthButton.classList.add("hidden");
+  }
+}
+
 async function loadCourses() {
   if (!user) {
     courses = [];
@@ -692,11 +703,18 @@ async function loadCourses() {
 }
 
 async function boot() {
+  await loadAuthConfig();
   await loadSession();
   await loadCourses();
   renderAccount();
   renderTimer();
   showRoute(user ? "dashboard" : "landing");
+  const authErrorParam = new URLSearchParams(window.location.search).get("auth");
+  if (!user && authErrorParam?.startsWith("google_")) {
+    openAuth("signin");
+    setAuthError("Google sign-in could not be completed. Please try again.");
+    window.history.replaceState({}, "", window.location.pathname);
+  }
 }
 
 boot();

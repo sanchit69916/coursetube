@@ -35,6 +35,27 @@ npm start
 
 Without `YOUTUBE_API_KEY`, the server tries a no-key public playlist import and falls back to pasted video titles when YouTube blocks or changes page metadata.
 
+## Google Sign-In
+
+Google sign-in is available when these environment variables are set:
+
+```text
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+```
+
+Add this authorized redirect URI in Google Cloud Console:
+
+```text
+https://your-domain.com/api/auth/google/callback
+```
+
+For the current Vercel deployment, use:
+
+```text
+https://coursetube-seven.vercel.app/api/auth/google/callback
+```
+
 ## Current auth and storage
 
-Sign in/sign up is currently a local prototype using `localStorage`. Courses, progress, and notes are saved in the browser on this machine. A production version should replace this with real authentication and a database.
+Sign in/sign up uses backend session cookies. Courses, progress, and notes are saved through the Python backend in Postgres when `DATABASE_URL` is configured.

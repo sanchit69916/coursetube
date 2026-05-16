@@ -2,8 +2,8 @@
   color-scheme: dark;
   --bg: #09090f;
   --bg-2: #0f172a;
-  --panel: rgba(255, 255, 255, 0.055);
-  --panel-strong: rgba(255, 255, 255, 0.09);
+  --panel: rgba(255, 255, 255, 0.052);
+  --panel-strong: rgba(255, 255, 255, 0.08);
   --panel-light: #ffffff;
   --ink: #f8fafc;
   --ink-dark: #0f172a;
@@ -13,9 +13,9 @@
   --line-soft: rgba(255, 255, 255, 0.08);
   --pink: #d946ef;
   --violet: #7c3aed;
-  --purple: #a855f7;
+  --purple: #6366f1;
   --teal: #0f766e;
-  --teal-bright: #14b8a6;
+  --teal-bright: #2dd4bf;
   --amber: #f59e0b;
   --red: #ef4444;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
@@ -37,9 +37,8 @@ body {
   font-family: Inter, "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 9% 4%, rgba(217, 70, 239, 0.22), transparent 28%),
-    radial-gradient(circle at 88% 12%, rgba(59, 130, 246, 0.16), transparent 30%),
-    radial-gradient(circle at 52% 38%, rgba(124, 58, 237, 0.12), transparent 34%),
+    radial-gradient(circle at 9% 4%, rgba(217, 70, 239, 0.16), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgba(59, 130, 246, 0.12), transparent 30%),
     linear-gradient(180deg, #09090f 0%, #0b1020 42%, #09090f 100%);
 }
 
@@ -484,6 +483,33 @@ h3 {
   margin-top: clamp(44px, 7vw, 86px);
 }
 
+.landing-section:not(.journey-section) {
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid rgba(226, 232, 240, 0.78);
+  border-radius: 24px;
+  color: var(--ink-dark);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92)),
+    #ffffff;
+  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.18);
+}
+
+.landing-section:not(.journey-section) .eyebrow {
+  color: var(--teal);
+}
+
+.landing-section:not(.journey-section) h2,
+.landing-section:not(.journey-section) h3,
+.landing-section:not(.journey-section) strong {
+  color: var(--ink-dark);
+}
+
+.landing-section:not(.journey-section) .section-heading p,
+.landing-section:not(.journey-section) .process-grid p,
+.landing-section:not(.journey-section) .capability-grid span {
+  color: #475569;
+}
+
 .section-heading {
   display: grid;
   gap: 6px;
@@ -514,6 +540,14 @@ h3 {
   backdrop-filter: blur(16px);
 }
 
+.landing-section:not(.journey-section) .process-grid article,
+.landing-section:not(.journey-section) .capability-grid article {
+  border-color: #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  backdrop-filter: none;
+}
+
 .process-grid article {
   padding: 22px;
 }
@@ -528,6 +562,10 @@ h3 {
   color: white;
   background: linear-gradient(135deg, var(--pink), var(--violet));
   font-weight: 950;
+}
+
+.landing-section:not(.journey-section) .process-number {
+  background: linear-gradient(135deg, var(--teal), #0f5f59);
 }
 
 .capability-grid {
@@ -549,7 +587,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 24px;
   background:
-    linear-gradient(135deg, rgba(217, 70, 239, 0.12), rgba(20, 184, 166, 0.08)),
+    linear-gradient(135deg, rgba(217, 70, 239, 0.10), rgba(20, 184, 166, 0.08)),
     var(--panel);
 }
 

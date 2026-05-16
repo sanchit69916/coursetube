@@ -22,6 +22,7 @@ const closeAuth = document.querySelector("#close-auth");
 const courseForm = document.querySelector("#course-form");
 const statusStrip = document.querySelector("#status-strip");
 const statusText = document.querySelector("#status-text");
+const dashboardHero = document.querySelector("#dashboard-hero");
 const statsRow = document.querySelector("#stats-row");
 const courseGrid = document.querySelector("#course-grid");
 const emptyLibrary = document.querySelector("#empty-library");
@@ -30,6 +31,7 @@ const progressFill = document.querySelector("#progress-fill");
 const progressLabel = document.querySelector("#progress-label");
 const moduleList = document.querySelector("#module-list");
 const playerFrame = document.querySelector("#player-frame");
+const playerProgressChip = document.querySelector("#player-progress-chip");
 const lessonMeta = document.querySelector("#lesson-meta");
 const lessonTitle = document.querySelector("#lesson-title");
 const lessonFocus = document.querySelector("#lesson-focus");
@@ -156,16 +158,42 @@ function renderDashboard() {
   const lessons = courses.reduce((sum, course) => sum + course.summary.lessons, 0);
   const hours = courses.reduce((sum, course) => sum + course.summary.estimatedHours, 0);
   const progress = lessons ? Math.round((completed / lessons) * 100) : 0;
+  const nextCourse = courses[0] || null;
+  const nextPercent = nextCourse?.summary.lessons ? Math.round((nextCourse.completed.length / nextCourse.summary.lessons) * 100) : 0;
+
+  dashboardHero.innerHTML = nextCourse ? `
+    <div>
+      <p class="eyebrow">Continue learning</p>
+      <h3>${escapeHtml(nextCourse.title)}</h3>
+      <p>${escapeHtml(nextCourse.objective)}</p>
+      <div class="dashboard-progress"><span style="width: ${nextPercent}%"></span></div>
+    </div>
+    <div class="dashboard-hero-actions">
+      <span>${nextCourse.completed.length} / ${nextCourse.summary.lessons} lessons complete</span>
+      <button class="primary-button" type="button" data-open-course="${nextCourse.localId}">Resume course</button>
+    </div>
+  ` : `
+    <div>
+      <p class="eyebrow">Start here</p>
+      <h3>Build your first course from a playlist.</h3>
+      <p>Paste a YouTube playlist, generate a course structure, then study with summaries, notes, and focus tools.</p>
+    </div>
+    <div class="dashboard-hero-actions">
+      <span>No saved courses yet</span>
+      <button class="primary-button" type="button" data-route="create">Create course</button>
+    </div>
+  `;
 
   statsRow.innerHTML = [
-    ["Courses", courses.length],
-    ["Lessons", lessons],
-    ["Hours", hours],
-    ["Progress", `${progress}%`]
-  ].map(([label, value]) => `
+    ["Courses", courses.length, "Saved paths"],
+    ["Lessons", lessons, "Total videos"],
+    ["Hours", hours, "Estimated study"],
+    ["Progress", `${progress}%`, "Overall done"]
+  ].map(([label, value, hint]) => `
     <article class="stat-card">
       <strong>${escapeHtml(value)}</strong>
       <span>${escapeHtml(label)}</span>
+      <small>${escapeHtml(hint)}</small>
     </article>
   `).join("");
 
@@ -382,6 +410,7 @@ function renderCourseView() {
   activeCourseTitle.textContent = course.title;
   progressFill.style.width = `${percent}%`;
   progressLabel.textContent = `${course.completed.length} of ${course.summary.lessons} lessons complete`;
+  playerProgressChip.textContent = `${percent}% complete`;
   courseNotes.value = course.notes || "";
 
   moduleList.innerHTML = course.modules.map((module) => `

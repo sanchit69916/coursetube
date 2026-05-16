@@ -161,10 +161,11 @@
           <div class="page-heading">
             <div>
               <p class="eyebrow">Learning dashboard</p>
-              <h2>Your courses</h2>
+              <h2>Your learning studio</h2>
             </div>
             <button class="primary-button" type="button" data-route="create">Create course</button>
           </div>
+          <section class="dashboard-hero" id="dashboard-hero"></section>
           <div class="stats-row" id="stats-row"></div>
           <div class="course-grid" id="course-grid"></div>
           <div class="empty-library hidden" id="empty-library">
@@ -240,7 +241,13 @@
             </aside>
 
             <section class="lesson-stage">
-              <div class="player-frame" id="player-frame"></div>
+              <div class="player-wrap">
+                <div class="player-topline">
+                  <span>Now playing</span>
+                  <span id="player-progress-chip"></span>
+                </div>
+                <div class="player-frame" id="player-frame"></div>
+              </div>
               <div class="lesson-panel">
                 <div>
                   <p class="eyebrow" id="lesson-meta"></p>
